@@ -1,0 +1,17 @@
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+
+# Docker
+*.tar
+
+# Java
+target/
+*.jar
+*.war
+
+# OS
+.DS_Store
