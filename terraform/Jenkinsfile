@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_DEFAULT_REGION = 'ap-south-1'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform plan'
+                }
+            }
+        }
+
+        stage('Manual Approval') {
+            steps {
+                input message: 'Review the plan above. Approve to apply?',
+                      ok: 'Yes, Apply!'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Update kubeconfig') {
+            steps {
+                sh 'aws eks update-kubeconfig --region ap-south-1 --name eks-3tier-cluster'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Infrastructure created successfully!'
+        }
+        failure {
+            echo 'Infrastructure creation failed!'
+        }
+    }
+}
