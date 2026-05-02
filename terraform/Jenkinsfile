@@ -1,61 +1,79 @@
 pipeline {
     agent any
-
     environment {
         AWS_DEFAULT_REGION = 'ap-south-1'
     }
-
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-
         stage('Terraform Init') {
             steps {
-                dir('terraform') {
-                    sh 'terraform init'
+                withCredentials([aws(credentialsId: 'aws-credentials')]) {
+                    dir('terraform') {
+                        sh 'terraform init'
+                    }
                 }
             }
         }
-
         stage('Terraform Plan') {
             steps {
-                dir('terraform') {
-                    sh 'terraform plan'
+                withCredentials([
+                    aws(credentialsId: 'aws-credentials'),
+                    string(credentialsId: 'db-password', variable: 'DB_PASS')
+                ]) {
+                    dir('terraform') {
+                        sh 'terraform plan -var="db_password=${DB_PASS}"'
+                    }
                 }
             }
         }
-
         stage('Manual Approval') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
                 input message: 'Review the plan above. Approve to apply?',
                       ok: 'Yes, Apply!'
             }
         }
-
-        stage('Terraform Apply') {
+        stage('Terraform Apply or Destroy') {
             steps {
-                dir('terraform') {
-                    sh 'terraform apply -auto-approve'
+                withCredentials([
+                    aws(credentialsId: 'aws-credentials'),
+                    string(credentialsId: 'db-password', variable: 'DB_PASS')
+                ]) {
+                    dir('terraform') {
+                        sh """
+                            if [ "${params.ACTION}" = "destroy" ]; then
+                                terraform destroy -auto-approve -var="db_password=${DB_PASS}"
+                            else
+                                terraform apply -auto-approve -var="db_password=${DB_PASS}"
+                            fi
+                        """
+                    }
                 }
             }
         }
-
         stage('Update kubeconfig') {
+            when {
+                expression { params.ACTION == 'apply' }
+            }
             steps {
-                sh 'aws eks update-kubeconfig --region ap-south-1 --name eks-3tier-cluster'
+                withCredentials([aws(credentialsId: 'aws-credentials')]) {
+                    sh 'aws eks update-kubeconfig --region ap-south-1 --name eks-3tier-cluster'
+                }
             }
         }
     }
-
     post {
         success {
-            echo 'Infrastructure created successfully!'
+            echo "Terraform ${params.ACTION} completed successfully!"
         }
         failure {
-            echo 'Infrastructure creation failed!'
+            echo "Terraform ${params.ACTION} failed!"
         }
     }
 }
