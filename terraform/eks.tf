@@ -97,3 +97,21 @@ resource "aws_eks_node_group" "main" {
     Name = "${var.project}-node-group"
   }
 }
+
+# Security Group for EKS Worker Nodes
+resource "aws_security_group" "eks_nodes" {
+  name        = "${var.project}-eks-nodes-sg"
+  description = "Security group for EKS worker nodes"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project}-eks-nodes-sg"
+  }
+}

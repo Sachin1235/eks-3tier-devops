@@ -21,3 +21,9 @@ variable "public_subnets" {
 variable "private_subnets" {
   default = ["10.0.3.0/24", "10.0.4.0/24"]
 }
+
+variable "db_password" {
+  description = "RDS master password"
+  type        = string
+  sensitive   = true
+}
