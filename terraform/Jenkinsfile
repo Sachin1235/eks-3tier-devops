@@ -30,15 +30,6 @@ pipeline {
                 }
             }
         }
-        stage('Manual Approval') {
-            when {
-                expression { params.ACTION == 'apply' }
-            }
-            steps {
-                input message: 'Review the plan above. Approve to apply?',
-                      ok: 'Yes, Apply!'
-            }
-        }
         stage('Terraform Apply or Destroy') {
             steps {
                 withCredentials([
