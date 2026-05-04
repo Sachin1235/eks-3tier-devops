@@ -27,7 +27,9 @@ pipeline {
                         aws ecr get-login-password --region ap-south-1 | \
                         docker login --username AWS --password-stdin ${ECR_REGISTRY}
                         docker build -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
+                        docker build -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:latest ./frontend
                         docker build -t ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
+                        docker build -t ${ECR_REGISTRY}/${BACKEND_IMAGE}:latest ./backend
                     '''
                 }
             }
@@ -37,7 +39,9 @@ pipeline {
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
                     sh '''
                         docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:latest
                         docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:latest
                     '''
                 }
             }
