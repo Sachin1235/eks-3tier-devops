@@ -120,11 +120,14 @@ pipeline {
 
             steps {
 
-                sh '''
-                    kubectl get pods -n ${ENVIRONMENT}
+                withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
-                    kubectl get svc -n ${ENVIRONMENT}
-                '''
+                    sh '''
+                        kubectl get pods -n ${ENVIRONMENT}
+
+                        kubectl get svc -n ${ENVIRONMENT}
+                    '''
+                }
             }
         }
     }
