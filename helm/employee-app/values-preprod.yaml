@@ -1,0 +1,7 @@
+namespace: preprod
+
+backend:
+  replicaCount: 3
+
+frontend:
+  replicaCount: 3

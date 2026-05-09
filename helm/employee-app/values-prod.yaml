@@ -1,0 +1,7 @@
+namespace: prod
+
+backend:
+  replicaCount: 5
+
+frontend:
+  replicaCount: 5

@@ -1,0 +1,7 @@
+namespace: qa
+
+backend:
+  replicaCount: 2
+
+frontend:
+  replicaCount: 2

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: backend
+  namespace: {{ .Values.namespace }}
+
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: backend
+
+  template:
+    metadata:
+      labels:
+        app: backend
+
+    spec:
+      containers:
+      - name: backend
+
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+
+        ports:
+        - containerPort: {{ .Values.backend.containerPort }}
+
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: host
+
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: name
+
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: username
+
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password

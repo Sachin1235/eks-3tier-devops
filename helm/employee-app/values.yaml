@@ -1,0 +1,28 @@
+namespace: dev
+
+backend:
+  replicaCount: 1
+
+  image:
+    repository: 757077150713.dkr.ecr.ap-south-1.amazonaws.com/eks-3tier-backend
+    tag: latest
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  containerPort: 8080
+
+frontend:
+  replicaCount: 1
+
+  image:
+    repository: 757077150713.dkr.ecr.ap-south-1.amazonaws.com/eks-3tier-frontend
+    tag: latest
+
+  service:
+    type: LoadBalancer
+    port: 80
+
+  containerPort: 80
+
