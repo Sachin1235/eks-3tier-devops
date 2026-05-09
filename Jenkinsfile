@@ -3,6 +3,7 @@ pipeline {
     agent any
 
     parameters {
+
         choice(
             name: 'ENVIRONMENT',
             choices: ['dev', 'qa', 'preprod', 'prod'],
@@ -25,21 +26,27 @@ pipeline {
     stages {
 
         stage('Checkout') {
+
             steps {
                 checkout scm
             }
         }
 
         stage('Build Backend') {
+
             steps {
+
                 dir('backend') {
+
                     sh 'mvn clean package -DskipTests'
                 }
             }
         }
 
         stage('Docker Login') {
+
             steps {
+
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
                     sh '''
@@ -51,6 +58,7 @@ pipeline {
         }
 
         stage('Build Docker Images') {
+
             steps {
 
                 sh '''
@@ -62,17 +70,22 @@ pipeline {
         }
 
         stage('Push Docker Images') {
+
             steps {
 
-                sh '''
-                    docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+                withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
-                    docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
-                '''
+                    sh '''
+                        docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+
+                        docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
+                    '''
+                }
             }
         }
 
         stage('Update kubeconfig') {
+
             steps {
 
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
@@ -87,19 +100,24 @@ pipeline {
         }
 
         stage('Deploy using Helm') {
+
             steps {
 
-                sh '''
-                    helm upgrade --install employee-app-${ENVIRONMENT} ./helm/employee-app \
-                    -f ./helm/employee-app/values-${ENVIRONMENT}.yaml \
-                    --set backend.image.tag=${IMAGE_TAG} \
-                    --set frontend.image.tag=${IMAGE_TAG} \
-                    -n ${ENVIRONMENT}
-                '''
+                withCredentials([aws(credentialsId: 'aws-credentials')]) {
+
+                    sh '''
+                        helm upgrade --install employee-app-${ENVIRONMENT} ./helm/employee-app \
+                        -f ./helm/employee-app/values-${ENVIRONMENT}.yaml \
+                        --set backend.image.tag=${IMAGE_TAG} \
+                        --set frontend.image.tag=${IMAGE_TAG} \
+                        -n ${ENVIRONMENT}
+                    '''
+                }
             }
         }
 
         stage('Verify Deployment') {
+
             steps {
 
                 sh '''
@@ -115,7 +133,7 @@ pipeline {
 
         success {
 
-            echo "Application deployed successfully to ${ENVIRONMENT} with image tag ${IMAGE_TAG}"
+            echo "Application deployed successfully to ${ENVIRONMENT} environment with image tag ${IMAGE_TAG}"
         }
 
         failure {
