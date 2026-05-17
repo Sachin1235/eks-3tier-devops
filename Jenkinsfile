@@ -5,16 +5,27 @@ pipeline {
     parameters {
 
         choice(
+            name: 'ACTION',
+            choices: ['build', 'deploy'],
+            description: 'Select action'
+        )
+
+        choice(
             name: 'ENVIRONMENT',
             choices: ['dev', 'qa', 'preprod', 'prod'],
             description: 'Select deployment environment'
+        )
+
+        string(
+            name: 'DEPLOY_TAG',
+            defaultValue: '',
+            description: 'Enter image tag for deploy (example: 8)'
         )
     }
 
     environment {
 
         AWS_DEFAULT_REGION = 'ap-south-1'
-
         ECR_REGISTRY = '757077150713.dkr.ecr.ap-south-1.amazonaws.com'
 
         FRONTEND_IMAGE = 'eks-3tier-frontend'
@@ -26,7 +37,6 @@ pipeline {
     stages {
 
         stage('Checkout') {
-
             steps {
                 checkout scm
             }
@@ -34,10 +44,14 @@ pipeline {
 
         stage('Build Backend') {
 
+            when {
+                expression {
+                    params.ACTION == 'build'
+                }
+            }
+
             steps {
-
                 dir('backend') {
-
                     sh 'mvn clean package -DskipTests'
                 }
             }
@@ -45,13 +59,18 @@ pipeline {
 
         stage('Docker Login') {
 
-            steps {
+            when {
+                expression {
+                    params.ACTION == 'build'
+                }
+            }
 
+            steps {
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
                     sh '''
-                        aws ecr get-login-password --region ap-south-1 | \
-                        docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    aws ecr get-login-password --region ap-south-1 | \
+                    docker login --username AWS --password-stdin ${ECR_REGISTRY}
                     '''
                 }
             }
@@ -59,26 +78,38 @@ pipeline {
 
         stage('Build Docker Images') {
 
+            when {
+                expression {
+                    params.ACTION == 'build'
+                }
+            }
+
             steps {
 
                 sh '''
-                    docker build -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
+                docker build -t ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
 
-                    docker build -t ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
+                docker build -t ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
                 '''
             }
         }
 
         stage('Push Docker Images') {
 
+            when {
+                expression {
+                    params.ACTION == 'build'
+                }
+            }
+
             steps {
 
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
                     sh '''
-                        docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
+                    docker push ${ECR_REGISTRY}/${FRONTEND_IMAGE}:${IMAGE_TAG}
 
-                        docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
+                    docker push ${ECR_REGISTRY}/${BACKEND_IMAGE}:${IMAGE_TAG}
                     '''
                 }
             }
@@ -91,9 +122,9 @@ pipeline {
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
                     sh '''
-                        aws eks update-kubeconfig \
-                        --region ap-south-1 \
-                        --name eks-3tier-cluster
+                    aws eks update-kubeconfig \
+                    --region ap-south-1 \
+                    --name eks-3tier-cluster
                     '''
                 }
             }
@@ -105,13 +136,18 @@ pipeline {
 
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
-                    sh '''
-                        helm upgrade --install employee-app-${ENVIRONMENT} ./helm/employee-app \
-                        -f ./helm/employee-app/values-${ENVIRONMENT}.yaml \
-                        --set backend.image.tag=${IMAGE_TAG} \
-                        --set frontend.image.tag=${IMAGE_TAG} \
-                        -n ${ENVIRONMENT}
-                    '''
+                    script {
+
+                        def TAG = params.ACTION == 'build' ? IMAGE_TAG : params.DEPLOY_TAG
+
+                        sh """
+                        helm upgrade --install employee-app-${params.ENVIRONMENT} ./helm/employee-app \
+                        -f ./helm/employee-app/values-${params.ENVIRONMENT}.yaml \
+                        --set backend.image.tag=${TAG} \
+                        --set frontend.image.tag=${TAG} \
+                        -n ${params.ENVIRONMENT}
+                        """
+                    }
                 }
             }
         }
@@ -123,9 +159,9 @@ pipeline {
                 withCredentials([aws(credentialsId: 'aws-credentials')]) {
 
                     sh '''
-                        kubectl get pods -n ${ENVIRONMENT}
+                    kubectl get pods -n ${ENVIRONMENT}
 
-                        kubectl get svc -n ${ENVIRONMENT}
+                    kubectl get svc -n ${ENVIRONMENT}
                     '''
                 }
             }
@@ -135,12 +171,10 @@ pipeline {
     post {
 
         success {
-
-            echo "Application deployed successfully to ${ENVIRONMENT} environment with image tag ${IMAGE_TAG}"
+            echo "Deployment completed successfully!"
         }
 
         failure {
-
             echo "Deployment failed!"
         }
     }
